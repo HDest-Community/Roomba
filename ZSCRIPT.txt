@@ -1,0 +1,152 @@
+version "4.0"
+
+class HDRoomba : HDPickup
+{
+	Default
+	{
+		+HDPICKUP.CHEATNOGIVE
+		-HDPICKUP.NOTINPOCKETS
+		+INVENTORY.INVBAR
+		HDPickup.Bulk 40;
+		HDPickup.RefID "rmb";
+		Inventory.MaxAmount 3;
+		Inventory.Icon "RMBAA1";
+		Inventory.PickupMessage "Picked up a brass roomba.";
+		Tag "Brass Roomba";
+	}
+
+	States
+	{
+		Spawn:
+			RMBA A -1;
+			Stop;
+		Use:
+			TNT1 A 0
+			{
+				bool success; Actor a;
+
+				double sinp = sin(pitch);
+				double cosp = cos(pitch);
+
+				double XVel = 3 + ((player.cmd.buttons & BT_SPEED ? 15 : 2) * (CheckInventory("PowerStrength", 0) ? 3 : 1)) * cosp;
+				double YVel = -(vel.x * sin(angle) + vel.y * cos(angle));
+				double ZVel = 3 + (10 * -sinp) * (CheckInventory("PowerStrength", 0) ? 2 : 1);
+
+				[success, a] = A_SpawnItemEx("HDRoombaFloor", 0, 0, height / 2 + 8, XVel, YVel, ZVel, flags: SXF_SETMASTER | SXF_TRANSFERTRANSLATION);
+				a.vel += vel;
+			}
+			Stop;
+	}
+}
+
+class HDRoombaFloor : HDUPK
+{
+	private void TurnOff()
+	{
+		if (!TurnedOff)
+		{
+			TurnedOff = true;
+			A_StopAllSounds();
+			A_StartSound("HDRoomba/VacuumStop", 7, 0, 0.75);
+			SetStateLabel("Spawn");
+		}
+	}
+
+	private void VacuumBrass()
+	{
+		if (CheckProximity("SevenMilBrass", 192, 1, CPXF_SETTRACER | CPXF_CLOSEST | CPXF_CHECKSIGHT))
+		{
+			if (CountInv("SevenMilBrass") >= 1000)
+			{
+				TurnOff();
+				return;
+			}
+
+			if (!tracer)
+			{
+				return;
+			}
+
+			double Distance = Distance3D(tracer);
+			if (Distance < 16)
+			{
+				let Brass = SevenMilBrass(tracer);
+				if (!Brass || Brass.pos ~== (0, 0, 0))
+				{
+					return;
+				}
+
+				Brass.ActualPickup(self);
+			}
+			else
+			{
+				vector3 dif = Level.vec3Diff(pos, tracer.pos);
+				if (dif.z < 6)
+				{
+					tracer.A_Face(self, 0, 0);
+					tracer.A_ChangeVelocity(10 * cos(tracer.pitch), 0, 10 * -sin(tracer.pitch), CVF_RELATIVE | CVF_REPLACE);
+				}
+			}
+		}
+	}
+
+	override void OnGrab(Actor grabber)
+	{
+		TurnOff();
+		
+		int InvAmount = CountInv("SevenMilBrass");
+		if (InvAmount > 0)
+		{
+			int MaxGiveAmount = 1000 - grabber.CountInv("SevenMilBrass");
+			int GiveAmount = min(InvAmount, MaxGiveAmount);
+
+			grabber.A_GiveInventory("SevenMilBrass", GiveAmount);
+			A_TakeInventory("SevenMilBrass", GiveAmount);
+
+			if (InvAmount > GiveAmount)
+			{
+				// [Ace] Drop excess if player can't pick up more.
+				A_DropInventory("SevenMilBrass", InvAmount - GiveAmount);
+			}
+		}
+
+		Super.OnGrab(grabber);
+	}
+
+	private bool TurnedOff;
+
+	Default
+	{
+		Radius 8;
+		Height 12;
+		Speed 1;
+		HDUPK.PickupType "HDRoomba";
+		HDUPK.PickupMessage "Picked up a brass roomba.";
+		HDUPK.MaxUnitAmount 3;
+	}
+
+	States
+	{
+		Spawn:
+			RMBA A 1 A_JumpIf(!TurnedOff, "TurningOn");
+			Loop;
+		TurningOn:
+			RMBA A 5
+			{
+				A_StartSound("HDRoomba/VacuumStart", CHAN_VOICE, CHANF_NOSTOP, 0.75);
+				if (vel.length() < 1)
+				{
+					SetStateLabel("On");
+				}
+			}
+			Loop;
+		On:
+			RMBA AAAABBBB 1
+			{
+				A_StartSound("HDRoomba/VacuumLoop", CHAN_VOICE, CHANF_LOOPING, 0.75);
+				A_Wander();
+				VacuumBrass();
+			}
+			Loop;
+	}
+}
