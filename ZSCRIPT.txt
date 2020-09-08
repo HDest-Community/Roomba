@@ -7,7 +7,7 @@ class HDRoomba : HDPickup
 		+HDPICKUP.CHEATNOGIVE
 		-HDPICKUP.NOTINPOCKETS
 		+INVENTORY.INVBAR
-		HDPickup.Bulk 40;
+		HDPickup.Bulk 30;
 		HDPickup.RefID "rmb";
 		Inventory.MaxAmount 3;
 		Inventory.Icon "RMBAA1";
