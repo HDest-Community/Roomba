@@ -5,7 +5,7 @@ class HDRoomba : HDPickup
 	Default
 	{
 		+HDPICKUP.CHEATNOGIVE
-		-HDPICKUP.NOTINPOCKETS
+		+HDPICKUP.NOTINPOCKETS
 		+INVENTORY.INVBAR
 		HDPickup.Bulk 30;
 		HDPickup.RefID "rmb";
