@@ -11,8 +11,8 @@ class HDRoomba : HDPickup
 		HDPickup.RefID "rmb";
 		Inventory.MaxAmount 3;
 		Inventory.Icon "RMBAA1";
-		Inventory.PickupMessage "Picked up a brass roomba.";
-		Tag "Brass Roomba";
+		Inventory.PickupMessage "Picked up a roomba.";
+		Tag "Roomba";
 	}
 
 	States
@@ -52,40 +52,50 @@ class HDRoombaFloor : HDUPK
 		}
 	}
 
-	private void VacuumBrass()
+	private void VacuumItems()
 	{
-		if (CheckProximity("SevenMilBrass", 192, 1, CPXF_SETTRACER | CPXF_CLOSEST | CPXF_CHECKSIGHT))
+		for (int i = 0; i < VacuumedClasses.Size(); ++i)
 		{
-			if (CountInv("SevenMilBrass") >= 1000)
+			class<HDPickup> a = VacuumedClasses[i];
+			if (!a)
 			{
-				TurnOff();
-				return;
+				continue;
 			}
 
-			if (!tracer)
+			if (CheckProximity(a, 192, 1, CPXF_SETTRACER | CPXF_CLOSEST | CPXF_CHECKSIGHT))
 			{
-				return;
-			}
-
-			double Distance = Distance3D(tracer);
-			if (Distance < 16)
-			{
-				let Brass = SevenMilBrass(tracer);
-				if (!Brass || Brass.pos ~== (0, 0, 0))
+				if (CountInv(a) >= 1000)
 				{
-					return;
+					TurnOff();
+					continue;
 				}
 
-				Brass.ActualPickup(self);
-			}
-			else
-			{
-				vector3 dif = Level.vec3Diff(pos, tracer.pos);
-				if (dif.z < 6)
+				if (!tracer)
 				{
-					tracer.A_Face(self, 0, 0);
-					tracer.A_ChangeVelocity(10 * cos(tracer.pitch), 0, 10 * -sin(tracer.pitch), CVF_RELATIVE | CVF_REPLACE);
+					continue;
 				}
+
+				double Distance = Distance3D(tracer);
+				if (Distance < 16)
+				{
+					let Item = HDPickup(tracer);
+					if (!Item || Item.pos ~== (0, 0, 0))
+					{
+						continue;
+					}
+
+					Item.ActualPickup(self);
+				}
+				else
+				{
+					vector3 dif = Level.vec3Diff(pos, tracer.pos);
+					if (dif.z < 6)
+					{
+						tracer.A_Face(self, 0, 0);
+						tracer.A_ChangeVelocity(10 * cos(tracer.pitch), 0, 10 * -sin(tracer.pitch), CVF_RELATIVE | CVF_REPLACE);
+					}
+				}
+				break;
 			}
 		}
 	}
@@ -93,25 +103,44 @@ class HDRoombaFloor : HDUPK
 	override void OnGrab(Actor grabber)
 	{
 		TurnOff();
-		
-		int InvAmount = CountInv("SevenMilBrass");
-		if (InvAmount > 0)
+
+		for (int i = 0; i < VacuumedClasses.Size(); ++i)
 		{
-			int MaxGiveAmount = 1000 - grabber.CountInv("SevenMilBrass");
-			int GiveAmount = min(InvAmount, MaxGiveAmount);
+			Class<Inventory> cls = VacuumedClasses[i];
 
-			grabber.A_GiveInventory("SevenMilBrass", GiveAmount);
-			A_TakeInventory("SevenMilBrass", GiveAmount);
-
-			if (InvAmount > GiveAmount)
+			if (!cls)
 			{
-				// [Ace] Drop excess if player can't pick up more.
-				A_DropInventory("SevenMilBrass", InvAmount - GiveAmount);
+				continue;
+			}
+			
+			int InvAmount = CountInv(cls);
+			if (InvAmount > 0)
+			{
+				int MaxGiveAmount = 1000 - grabber.CountInv(cls);
+				int GiveAmount = min(InvAmount, MaxGiveAmount);
+
+				grabber.A_GiveInventory(cls, GiveAmount);
+				A_TakeInventory(cls, GiveAmount);
+
+				if (InvAmount > GiveAmount)
+				{
+					// [Ace] Drop excess if player can't pick up more.
+					A_DropInventory(cls, InvAmount - GiveAmount);
+				}
 			}
 		}
 
 		Super.OnGrab(grabber);
 	}
+
+	static const string VacuumedClasses[] =
+	{
+		"SevenMilBrass",
+		"HDRel_RawBrass",
+		"HDRel_RawPlastic",
+		"HDRel_RawLead",
+		"HDRel_RawPowder"
+	};
 
 	private bool TurnedOff;
 
@@ -121,8 +150,9 @@ class HDRoombaFloor : HDUPK
 		Height 12;
 		Speed 1;
 		HDUPK.PickupType "HDRoomba";
-		HDUPK.PickupMessage "Picked up a brass roomba.";
+		HDUPK.PickupMessage "Picked up a roomba.";
 		HDUPK.MaxUnitAmount 3;
+		MaxStepHeight 4;
 	}
 
 	States
@@ -145,7 +175,7 @@ class HDRoombaFloor : HDUPK
 			{
 				A_StartSound("HDRoomba/VacuumLoop", CHAN_VOICE, CHANF_LOOPING, 0.75);
 				A_Wander();
-				VacuumBrass();
+				VacuumItems();
 			}
 			Loop;
 	}
