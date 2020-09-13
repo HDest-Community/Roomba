@@ -89,7 +89,7 @@ class HDRoombaFloor : HDUPK
 				else
 				{
 					vector3 dif = Level.vec3Diff(pos, tracer.pos);
-					if (dif.z < 6)
+					if (dif.z < 10)
 					{
 						tracer.A_Face(self, 0, 0);
 						tracer.A_ChangeVelocity(10 * cos(tracer.pitch), 0, 10 * -sin(tracer.pitch), CVF_RELATIVE | CVF_REPLACE);
@@ -153,6 +153,7 @@ class HDRoombaFloor : HDUPK
 		HDUPK.PickupMessage "Picked up a roomba.";
 		HDUPK.MaxUnitAmount 3;
 		MaxStepHeight 4;
+		+NODROPOFF
 	}
 
 	States
