@@ -32,19 +32,25 @@ class HDRoomba : HDPickup
 				double YVel = -(vel.x * sin(angle) + vel.y * cos(angle));
 				double ZVel = 3 + (10 * -sinp) * (CheckInventory("PowerStrength", 0) ? 2 : 1);
 
-				[success, a] = A_SpawnItemEx("HDRoombaFloor", 0, 0, height / 2 + 8, XVel, YVel, ZVel, flags: SXF_SETMASTER | SXF_TRANSFERTRANSLATION);
-				a.vel += vel;
+				[success, a] = A_SpawnItemEx("HDRoombaHover", 0, 0, height / 2 + 8, XVel, YVel, ZVel, flags: SXF_SETMASTER | SXF_TRANSFERTRANSLATION);
+				let Roomba = HDRoombaHover(a);
+				Roomba.vel += vel;
+				Roomba.SetShade(player.GetColor());
+				Roomba.Destination = RoombaDestination(Spawn("RoombaDestination", pos));
+				Roomba.Destination.master = self;
 			}
 			Stop;
 	}
 }
 
-class HDRoombaFloor : HDUPK
+class HDRoombaHover : HDUPK
 {
 	private void TurnOff()
 	{
 		if (!TurnedOff)
 		{
+			VolDecrease = 0;
+			bNOGRAVITY = false;
 			TurnedOff = true;
 			A_StopAllSounds();
 			A_StartSound("HDRoomba/VacuumStop", 7, 0, 0.75);
@@ -64,44 +70,30 @@ class HDRoombaFloor : HDUPK
 
 			if (CheckProximity(a, 192, 1, CPXF_SETTRACER | CPXF_CLOSEST | CPXF_CHECKSIGHT))
 			{
-				if (CountInv(a) >= 1000)
-				{
-					TurnOff();
-					continue;
-				}
-
-				if (!tracer)
+				if (!tracer || CountInv(a) >= 1000)
 				{
 					continue;
 				}
 
-				double Distance = Distance3D(tracer);
-				if (Distance < 16)
-				{
-					let Item = HDPickup(tracer);
-					if (!Item || Item.pos ~== (0, 0, 0))
-					{
-						continue;
-					}
-
-					Item.ActualPickup(self);
-				}
-				else
-				{
-					vector3 dif = Level.vec3Diff(pos, tracer.pos);
-					if (dif.z < 10)
-					{
-						tracer.A_Face(self, 0, 0);
-						tracer.A_ChangeVelocity(10 * cos(tracer.pitch), 0, 10 * -sin(tracer.pitch), CVF_RELATIVE | CVF_REPLACE);
-					}
-				}
+				HDPickup(tracer).ActualPickup(self);
 				break;
 			}
 		}
 	}
 
-	override void OnGrab(Actor grabber)
+	override bool OnGrab(Actor grabber)
 	{
+		if (!TurnedOff && PickupTimer <= 0)
+		{
+			PickupTimer = 10;
+			return false;
+		}
+
+		if (Destination)
+		{
+			Destination.Destroy();
+		}
+
 		TurnOff();
 
 		for (int i = 0; i < VacuumedClasses.Size(); ++i)
@@ -119,7 +111,7 @@ class HDRoombaFloor : HDUPK
 				int MaxGiveAmount = 1000 - grabber.CountInv(cls);
 				int GiveAmount = min(InvAmount, MaxGiveAmount);
 
-				grabber.A_GiveInventory(cls, GiveAmount);
+				HDF.Give(grabber, cls, GiveAmount);
 				A_TakeInventory(cls, GiveAmount);
 
 				if (InvAmount > GiveAmount)
@@ -130,7 +122,7 @@ class HDRoombaFloor : HDUPK
 			}
 		}
 
-		Super.OnGrab(grabber);
+		return Super.OnGrab(grabber);
 	}
 
 	static const string VacuumedClasses[] =
@@ -142,18 +134,18 @@ class HDRoombaFloor : HDUPK
 		"HDRel_RawPowder"
 	};
 
+	private int PickupTimer;
 	private bool TurnedOff;
+	private double VolDecrease;
+	RoombaDestination Destination;
 
 	Default
 	{
 		Radius 8;
 		Height 12;
-		Speed 1;
 		HDUPK.PickupType "HDRoomba";
-		HDUPK.PickupMessage "Picked up a roomba.";
+		HDUPK.PickupMessage "Picked up a hovering roomba.";
 		HDUPK.MaxUnitAmount 3;
-		MaxStepHeight 4;
-		+NODROPOFF
 	}
 
 	States
@@ -167,6 +159,7 @@ class HDRoombaFloor : HDUPK
 				A_StartSound("HDRoomba/VacuumStart", CHAN_VOICE, CHANF_NOSTOP, 0.75);
 				if (vel.length() < 1)
 				{
+					bNOGRAVITY = true;
 					SetStateLabel("On");
 				}
 			}
@@ -174,9 +167,63 @@ class HDRoombaFloor : HDUPK
 		On:
 			RMBA AAAABBBB 1
 			{
+				if (VolDecrease < 0.60)
+				{
+					VolDecrease += 0.005;
+				}
+
+				invoker.PickupTimer--;
+				if (level.time % 5 == 0)
+				{
+					for (int i = 0; i < 360; i += 10)
+					{
+						A_SpawnParticle(fillcolor, SPF_RELATIVE | SPF_FULLBRIGHT, 15, 2, i, radius - 4, 0, 0, 0.2, 0, -frandom(0.4, 0.5));
+					}
+				}
+				if (invoker.Destination && (invoker.Distance2D(invoker.Destination) > 40 || abs(invoker.pos.z - invoker.Destination.pos.z) > 20))
+				{
+					vector3 diff = level.Vec3Diff(invoker.pos, invoker.Destination.pos);
+					double PitchToDest = atan2(diff.z, diff.xy.length());
+
+					A_Face(invoker.Destination, 180, 45);
+					A_ChangeVelocity(0.5 * cos(PitchToDest), 0, 0.5 * sin(PitchToDest), CVF_RELATIVE);
+					vel.x = clamp(vel.x, -2.5, 2.5);
+					vel.y = clamp(vel.y, -2.5, 2.5);
+					vel.z = clamp(vel.z, -2.5, 2.5);
+				}
+				else
+				{
+					A_ScaleVelocity(0.9);
+				}
+
+				A_SoundVolume(CHAN_VOICE, 0.75 - VolDecrease);
 				A_StartSound("HDRoomba/VacuumLoop", CHAN_VOICE, CHANF_LOOPING, 0.75);
-				A_Wander();
 				VacuumItems();
+			}
+			Loop;
+	}
+}
+
+class RoombaDestination : Actor
+{
+	Default
+	{
+		+NOINTERACTION
+	}
+
+	States
+	{
+		Spawn:
+			TNT1 A 1
+			{
+				if (master && master.Health > 0)
+				{
+					Warp(master, master.radius + 10, master.radius + 10, master.height + 4, flags: WARPF_NOCHECKPOSITION);
+				}
+				else
+				{
+					Destroy();
+				}
 			}
 			Loop;
 	}
