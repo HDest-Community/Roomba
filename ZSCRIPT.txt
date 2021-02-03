@@ -146,6 +146,7 @@ class HDRoombaHover : HDUPK
 		HDUPK.PickupType "HDRoomba";
 		HDUPK.PickupMessage "Picked up a hovering roomba.";
 		HDUPK.MaxUnitAmount 3;
+		+SLIDESONWALLS
 	}
 
 	States
