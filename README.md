@@ -6,5 +6,5 @@
 
 ### Notes
 ---
-- Roombas are only found in backpacks at the moment.
+- Roombas can only be found in backpacks. They are also sold by the [Merchant](https://gitlab.com/accensi/hd-addons/merchant) if you have that loaded.
 - The loadout code for the roomba is `rmb`.
