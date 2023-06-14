@@ -4,7 +4,7 @@
 
 ### Usage
 ---
-- Use Item: Drop roomba to collect brass or materials for the [Universal Reloader](https://gitlab.com/accensi/hd-addons/universal-reloader).
+- Use Item: Drop roomba to collect brass or materials for the [Universal Reloader](https://github.com/HDest-Community/Universal-Reloader).
 - Sprint + Use Item: Same as above but yeet it.
 - To pick it up, double-tap Use on it.
 
